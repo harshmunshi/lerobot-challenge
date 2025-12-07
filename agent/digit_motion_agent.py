@@ -329,10 +329,14 @@ class MotionCombiner:
         parquet_path = data_dir / "file-000.parquet"
         output_df.to_parquet(parquet_path, index=False)
         
-        # Create episodes metadata parquet
+        # Create episodes metadata parquet with all required fields
+        total_frames = len(output_df)
         episodes_df = pd.DataFrame({
             "episode_index": [0],
-            "length": [len(output_df)],
+            "data/chunk_index": [0],
+            "data/file_index": [0],
+            "dataset_from_index": [0],
+            "dataset_to_index": [total_frames],
             "meta/episodes/chunk_index": [0],
             "meta/episodes/file_index": [0],
             "task": [f"Write number {number}"],

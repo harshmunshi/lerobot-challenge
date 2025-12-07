@@ -8,7 +8,7 @@ This agent:
 1. Loads motion data from LeRobot parquet files for digits 0-9
 2. Uses the **latest folder versions** (S101_x_y takes priority over S101_x)
 3. Provides an interactive chat interface to generate combined motions
-4. Outputs combined motion data in LeRobot-compatible format
+4. Outputs combined motion data in LeRobot v3.0 compatible format
 
 ## Data Structure
 
@@ -72,18 +72,30 @@ python digit_motion_agent.py \
     --number 42
 ```
 
-### Replay Generated Motion
+### Replay Generated Motion (Consistent with lerobot-replay)
+
+The replay script is fully compatible with the standard `lerobot-replay` command pattern:
 
 ```bash
-# Simulate replay (no robot)
+# Using the replay script (same pattern as lerobot-replay)
 python replay_combined_motion.py \
-    --motion-dir ../shubhamt0802/combined_number_18 \
-    --simulate
+    --robot.type=so101_follower \
+    --robot.port=/dev/tty.usbmodem58760431541 \
+    --robot.id=digit_writer \
+    --dataset.repo_id=local \
+    --dataset.root=../shubhamt0802/combined_number_18 \
+    --dataset.episode=0
+```
 
-# Replay on actual robot
-python replay_combined_motion.py \
-    --motion-dir ../shubhamt0802/combined_number_18 \
-    --robot-port /dev/tty.usbmodem58760431541
+Or use the standard lerobot-replay command directly:
+```bash
+lerobot-replay \
+    --robot.type=so101_follower \
+    --robot.port=/dev/tty.usbmodem58760431541 \
+    --robot.id=digit_writer \
+    --dataset.repo_id=local \
+    --dataset.root=./shubhamt0802/combined_number_18 \
+    --dataset.episode=0
 ```
 
 ## API Reference
@@ -139,7 +151,7 @@ agent.run_interactive()
 
 ## Output Format
 
-The agent outputs data in LeRobot v3.0 format:
+The agent outputs data in LeRobot v3.0 format, fully compatible with `LeRobotDataset`:
 
 ```
 combined_number_18/
@@ -147,17 +159,37 @@ combined_number_18/
 │   └── chunk-000/
 │       └── file-000.parquet
 └── meta/
+    ├── episodes/
+    │   └── chunk-000/
+    │       └── file-000.parquet
     ├── info.json
-    └── stats.json
+    ├── stats.json
+    └── tasks.parquet
 ```
 
-The parquet file contains:
-- `action` - Robot joint positions (6 DOF: shoulder_pan, shoulder_lift, elbow_flex, wrist_flex, wrist_roll, gripper)
+### Data Parquet Structure
+
+The `data/chunk-000/file-000.parquet` file contains:
+- `action` - Robot joint positions array (6 DOF)
 - `observation.state` - Same as action
 - `timestamp` - Time in seconds
 - `frame_index` - Frame number
 - `episode_index` - Always 0 for combined motion
+- `index` - Global frame index
 - `task_index` - Always 0
+
+### Episodes Metadata Structure
+
+The `meta/episodes/chunk-000/file-000.parquet` file contains:
+- `episode_index` - Episode number (0)
+- `data/chunk_index` - Data chunk index (0)
+- `data/file_index` - Data file index (0)
+- `dataset_from_index` - Starting frame (0)
+- `dataset_to_index` - Ending frame (total_frames)
+- `meta/episodes/chunk_index` - Episodes chunk index (0)
+- `meta/episodes/file_index` - Episodes file index (0)
+- `task` - Task description
+- `task_index` - Task index (0)
 
 ## Tools Available to Agent
 
@@ -172,7 +204,7 @@ The OpenAI agent has access to these tools:
 The agent automatically selects the **latest version** for each digit:
 
 - `S101_3` = digit 3, version 0
-- `S101_3_0` = digit 3, version 0 (same as above)
+- `S101_3_0` = digit 3, version 0 (same priority)
 - `S101_3_2` = digit 3, version 2 (takes priority)
 
 The folder with the highest version number is used.
@@ -206,8 +238,12 @@ the recorded motions for digit 1 and digit 8 in sequence.
 
 To replay this on your robot:
 python replay_combined_motion.py \
-    --motion-dir ../shubhamt0802/combined_number_18 \
-    --robot-port /dev/tty.usbmodem58760431541
+    --robot.type=so101_follower \
+    --robot.port=/dev/tty.usbmodem58760431541 \
+    --robot.id=digit_writer \
+    --dataset.repo_id=local \
+    --dataset.root=../shubhamt0802/combined_number_18 \
+    --dataset.episode=0
 
 You: quit
 Goodbye! 👋
@@ -233,3 +269,8 @@ Could not connect to robot on port...
 ```
 Solution: Check USB connection and port name with `lerobot-find-port`
 
+### Data Incompatibility
+If you get errors loading the combined data, ensure:
+1. The original digit data is in LeRobot v3.0 format
+2. All required metadata files exist in `meta/` directory
+3. The `info.json` has `codebase_version: "v3.0"`
